@@ -28,7 +28,7 @@ from osgeo import gdal
 from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
 from qgis.PyQt.QtGui import QIcon
 from qgis.gui import QgsMapToolEmitPoint, QgsRubberBand
-from qgis.core import QgsRectangle, QgsGeometry, Qgis, QgsFeature, QgsProject, QgsRasterLayer, QgsSettings
+from qgis.core import QgsRectangle, QgsGeometry, Qgis, QgsFeature, QgsProject, QgsRasterLayer, QgsSettings, QgsVectorLayer
 from qgis.PyQt.QtGui import QColor
 # Import the code for the dialog
 from .qalq_dialog import QalqDialog
@@ -258,12 +258,30 @@ class Qalc:
         result = self.dlg.exec()
         # See if OK was pressed
         if result:
+            self.selected_layer = self.dlg.mMapLayerComboBox.currentLayer()
+            self.selected_directory = self.dlg.mQgsFileWidget.filePath()
             self.start()
        
 
     def start(self):
-        selected_layer = self.dlg.mMapLayerComboBox.currentLayer()
-        selected_directory = self.dlg.mQgsFileWidget.filePath()
+        selected_layer = self.selected_layer 
+        selected_directory = self.selected_directory 
+
+        if not self.selected_layer:
+            QMessageBox.warning(self.iface.mainWindow(), "dang!", "no layer selected")
+            return
+        if not self.selected_directory:
+            QMessageBox.warning(self.iface.mainWindow(), "dang!", "no output path selected")
+            return
+        invalid_providers = {"wms", "wmts", "xyz", "arcgismapserver", "wfs", "wcs"}
+        provider = self.selected_layer.dataProvider().name().lower()
+        if provider in invalid_providers:
+            QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid layer provider")
+            return
+        is_raster = isinstance(selected_layer, QgsRasterLayer)
+        if not is_raster:
+            QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid layer type")
+            return
         try:
             self.tool = ExtentSet(self.canvas, self)
             self.canvas.setMapTool(self.tool)
@@ -274,62 +292,43 @@ class Qalc:
 
     def crop_extent(self, aoi_extent):
         print(f"clipping extent: {aoi_extent.toString()}")
-        input_layer = self.dlg.mMapLayerComboBox.currentLayer()
+        input_layer = self.selected_layer
         if not input_layer:
             QMessageBox.warning(self.iface.mainWindow(), "dang", "No active layer found.")
             return
-        params = {
-            'INPUT': input_layer,
-            'PROJWIN': aoi_extent,
-            'NODATA': None,
-            'OPTIONS': 'COMPRESS=NONE|BIGTIFF=IF_NEEDED',
-            'DATA_TYPE': 0,
-            'OUTPUT': 'TEMPORARY_OUTPUT'
-        }
 
+        input_path = input_layer.dataProvider().dataSourceUri().split('|')[0]
         proj_win = [
             aoi_extent.xMinimum(),
             aoi_extent.yMaximum(),
             aoi_extent.xMaximum(),
             aoi_extent.yMinimum()
         ]
-
-        output_path = "/vsimem/heightmap.tif"
+        output_path = f"/vsimem/{input_layer}_heightmap.tif"
         translate_opts = gdal.TranslateOptions(
             projWin=proj_win,
-            createOptions=['COMPRESS=NONE','BIGTIFF=IF_NEEDED'],
-            noData=None
+            creationOptions=['COMPRESS=NONE','BIGTIFF=IF_NEEDED']
         )
-        
-
         try:
-            # result = processing.run("gdal:cliprasterbyextent", params)
-            # cropped_layer = QgsRasterLayer(result['OUTPUT'], "heightmap")
-            ds = gdal.Translate(output_path, input_layer, options=translate_opts)
 
+            ds = gdal.Translate(output_path, input_path, options=translate_opts)
             if ds is not None:
-                ds = None
-                cropped_layer = QgsRasterLayer(ds['OUTPUT'], "heightmap")
-
+                ds.FlushCache()
+                cropped_layer = QgsRasterLayer(output_path, "heightmap")
                 if cropped_layer.isValid():
                     QgsProject.instance().addMapLayer(cropped_layer)
+                    # I reckon start the next call here, which should take the cropped layer, translate to Uint16 .png
                 else:
                     QMessageBox.critical(
                         self.iface.mainWindow(), 
                         "dang", 
                         "Failed to load the cropped raster. make sure you have the proper one selected"
                     )
+                ds=None
             else:
                 raise Exception("dang, gdal.Translate : None")
-
         except Exception as e:
             QMessageBox.critical(self.iface.mainWindow(), "dang", f"GDAL clip failed: {str(e)}")
-
-
-
-
-
-
 
 # todo: extent will set resolution and scaling values for:
 # a heightmap png, which will need the min/max/range values from the zonalstats over the extent selected,
