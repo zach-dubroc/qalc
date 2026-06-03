@@ -74,8 +74,6 @@ class ExtentSet(QgsMapToolEmitPoint):
             center.x() + half_size,
             center.y() + half_size,
         )
-        print("click at:", rect.xMinimum(), rect.yMinimum(), rect.xMaximum(), rect.yMaximum())
-
         # this extent set the extent of all exports
         # send execution back to plugin
         self.iface.crop_extent(rect)
@@ -89,20 +87,18 @@ class ExtentSet(QgsMapToolEmitPoint):
 
     def canvasReleaseEvent(self, e):
         self.isDrawing = False
-        # self.deactivate()
         self.canvas.unsetMapTool(self)
 
     def deactivate(self):
         self.rubberBand.reset()
         super().deactivate()
-
 #######
 ####end
 ####selection tool
 ######
 
 
-class Qalq:
+class Qalc:
     """QGIS Plugin Implementation."""
 
     def __init__(self, iface):
@@ -278,29 +274,54 @@ class Qalq:
 
     def crop_extent(self, aoi_extent):
         print(f"clipping extent: {aoi_extent.toString()}")
-        layer = self.dlg.mMapLayerComboBox.currentLayer()
-        if not layer:
+        input_layer = self.dlg.mMapLayerComboBox.currentLayer()
+        if not input_layer:
             QMessageBox.warning(self.iface.mainWindow(), "dang", "No active layer found.")
             return
         params = {
-            'INPUT': layer,
+            'INPUT': input_layer,
             'PROJWIN': aoi_extent,
             'NODATA': None,
             'OPTIONS': 'COMPRESS=NONE|BIGTIFF=IF_NEEDED',
             'DATA_TYPE': 0,
             'OUTPUT': 'TEMPORARY_OUTPUT'
         }
+
+        proj_win = [
+            aoi_extent.xMinimum(),
+            aoi_extent.yMaximum(),
+            aoi_extent.xMaximum(),
+            aoi_extent.yMinimum()
+        ]
+
+        output_path = "/vsimem/heightmap.tif"
+        translate_opts = gdal.TranslateOptions(
+            projWin=proj_win,
+            createOptions=['COMPRESS=NONE','BIGTIFF=IF_NEEDED'],
+            noData=None
+        )
+        
+
         try:
-            result = processing.run("gdal:cliprasterbyextent", params)
-            cropped_layer = QgsRasterLayer(result['OUTPUT'], "Cropped DEM")
-            if cropped_layer.isValid():
-                QgsProject.instance().addMapLayer(cropped_layer)
+            # result = processing.run("gdal:cliprasterbyextent", params)
+            # cropped_layer = QgsRasterLayer(result['OUTPUT'], "heightmap")
+            ds = gdal.Translate(output_path, input_layer, options=translate_opts)
+
+            if ds is not None:
+                ds = None
+                cropped_layer = QgsRasterLayer(ds['OUTPUT'], "heightmap")
+
+                if cropped_layer.isValid():
+                    QgsProject.instance().addMapLayer(cropped_layer)
+                else:
+                    QMessageBox.critical(
+                        self.iface.mainWindow(), 
+                        "dang", 
+                        "Failed to load the cropped raster. make sure you have the proper one selected"
+                    )
             else:
-                QMessageBox.critical(
-                    self.iface.mainWindow(), 
-                    "dang", 
-                    "Failed to load the cropped raster. make sure you have the proper one selected"
-                )
+                raise Exception("dang, gdal.Translate : None")
+
         except Exception as e:
             QMessageBox.critical(self.iface.mainWindow(), "dang", f"GDAL clip failed: {str(e)}")
 

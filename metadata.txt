@@ -14,8 +14,8 @@ email=zacharydubroc@outlook.com
 
 about=QGIS to UnrealEngine Landscape automation tool
 
-tracker=https://github.com/zach-dubroc-mca/q_selector.git
-repository=https://github.com/zach-dubroc-mca/q_selector.git
+tracker=https://github.com/zach-dubroc/qalc.git
+repository=https://github.com/zach-dubroc/qalc
 license=GNU GPL v2
 # End of mandatory metadata
 
@@ -28,7 +28,7 @@ hasProcessingProvider=no
 # Tags are comma separated with spaces allowed
 tags=python
 
-homepage=https://github.com/zach-dubroc-mca/q_selector.git
+homepage=https://github.com/zach-dubroc/qalc.git
 category=Plugins
 icon=icon.png
 # experimental flag

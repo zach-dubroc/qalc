@@ -31,5 +31,5 @@ def classFactory(iface):
     :type iface: QgsInterface
     """
     #
-    from .qalq import Qalq
-    return Qalq(iface)
+    from .qalc import Qalc
+    return Qalc(iface)
