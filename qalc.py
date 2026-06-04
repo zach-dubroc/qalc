@@ -1,3 +1,4 @@
+#region
 # -*- coding: utf-8 -*-
 """
 /***************************************************************************
@@ -21,9 +22,9 @@
  *                                                                         *
  ***************************************************************************/
 """
+#endregion
 import os
 from qgis.PyQt.QtCore import QLocale, QTranslator, QCoreApplication
-import processing
 from osgeo import gdal
 from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
 from qgis.PyQt.QtGui import QIcon
@@ -37,6 +38,7 @@ import os.path
 #######
 ####selection tool
 ######
+#region
 class ExtentSet(QgsMapToolEmitPoint):
 
     def __init__(self, canvas, iface):
@@ -92,13 +94,15 @@ class ExtentSet(QgsMapToolEmitPoint):
     def deactivate(self):
         self.rubberBand.reset()
         super().deactivate()
-#######
+######
 ####end
 ####selection tool
 ######
-
+#endregion
 
 class Qalc:
+#gen from plugin_template
+#region
     """QGIS Plugin Implementation."""
 
     def __init__(self, iface):
@@ -242,7 +246,7 @@ class Qalc:
                 self.tr(u'&Qalc'),
                 action)
             self.iface.removeToolBarIcon(action)
-
+#endregion
     def run(self):
         """Run method that performs all the real work"""
         # Create the dialog with elements (after translation) and keep reference
@@ -264,21 +268,25 @@ class Qalc:
        
 
     def start(self):
+        # missing 
         selected_layer = self.selected_layer 
         selected_directory = self.selected_directory 
+        provider = self.selected_layer.dataProvider().name().lower()
+        is_raster = isinstance(selected_layer, QgsRasterLayer)
+        invalid_providers = {"wms", "wmts", "xyz", "arcgismapserver", "wfs", "wcs"}
 
         if not self.selected_layer:
             QMessageBox.warning(self.iface.mainWindow(), "dang!", "no layer selected")
             return
+
         if not self.selected_directory:
             QMessageBox.warning(self.iface.mainWindow(), "dang!", "no output path selected")
             return
-        invalid_providers = {"wms", "wmts", "xyz", "arcgismapserver", "wfs", "wcs"}
-        provider = self.selected_layer.dataProvider().name().lower()
+
         if provider in invalid_providers:
             QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid layer provider")
             return
-        is_raster = isinstance(selected_layer, QgsRasterLayer)
+
         if not is_raster:
             QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid layer type")
             return
@@ -291,7 +299,7 @@ class Qalc:
             )
 
     def crop_extent(self, aoi_extent):
-        print(f"clipping extent: {aoi_extent.toString()}")
+        # print(f"clipping extent: {aoi_extent.toString()}")
         input_layer = self.selected_layer
         if not input_layer:
             QMessageBox.warning(self.iface.mainWindow(), "dang", "No active layer found.")
@@ -310,14 +318,23 @@ class Qalc:
             creationOptions=['COMPRESS=NONE','BIGTIFF=IF_NEEDED']
         )
         try:
-
             ds = gdal.Translate(output_path, input_path, options=translate_opts)
             if ds is not None:
                 ds.FlushCache()
                 cropped_layer = QgsRasterLayer(output_path, "heightmap")
                 if cropped_layer.isValid():
                     QgsProject.instance().addMapLayer(cropped_layer)
-                    # I reckon start the next call here, which should take the cropped layer, translate to Uint16 .png
+                    # from cli would be -scale <minimum_elevation> <maximum_elevation> 0 65535
+                    # so before that warp happens I should get gdalinfo which should give the true min/max elevation 
+                    # then have to set resolution to match pixel/meters but prob better to do that in height_export 
+                    gtif = gdal.Open(output_path)
+                    elevation_band = gtif.GetRasterBand(1)
+                    stats = elevation_band.GetStatistics(True, True)
+                    # print('[ STATS ] =  min=%.3f, max=%.3f, mean=%.3f' % (stats[0], stats[1], stats[2]))
+                    # outputs:  [ STATS ] =  min=-3.731, max=7.119, mean=1.102
+                    min_elev = stats[0]
+                    max_elev = stats[1]
+                    self.height_export(min_elev, max_elev, output_path)
                 else:
                     QMessageBox.critical(
                         self.iface.mainWindow(), 
@@ -330,49 +347,30 @@ class Qalc:
         except Exception as e:
             QMessageBox.critical(self.iface.mainWindow(), "dang", f"GDAL clip failed: {str(e)}")
 
-# todo: extent will set resolution and scaling values for:
-# a heightmap png, which will need the min/max/range values from the zonalstats over the extent selected,
-# an albedo png, use as a texture on terrain built in unreal from the heightmap png
-# various geojson/.shps file that will add 3d models using either cesiums/UE's builtin georeference
+    def height_export(self, min_elev, max_elev, src_path):
+        #in-memory raster clip -> 16bit grayscale png
+        final_path = os.path.join(self.selected_directory, "heightmap.png")
 
-# mapselector t
-# 896433.0000000000000000
-# 3368385.0000000000000000
-# 900291.0000000000000000
-# 3371469.0000000000000000
-# click at: 897534.7824420319 3369738.8860417097 898039.7824420319 3370243.8860417097
+        translate_opts = gdal.TranslateOptions(
+            format='PNG',
+            outputType=gdal.GDT_UInt16,
+            scaleParams=[[min_elev, max_elev, 0, 65535]]
+        )
+        try:
+            ds = gdal.Translate(final_path, src_path, options=translate_opts)
+            if ds is not None:
+                ds.FlushCache()
 
-# biloxi.tif test layer info to check against:
-# Extent
-# 897825.00,3369672.00: 898344.00,3370005.00
-# Width
-# 173
-# Height
-# 111
-# Data type
-# Float32 - Thirty two bit floating point
-# GDAL Driver Description
-# GTiff
-# GDAL Driver Metadata
-# GeoTIFF
-# Dataset Description
-# C:/Users/zacha/Documents/dem data/biloxi.tif
-# Compression
+                self.iface.messageBar().pushMessage(
+                    "Success", 
+                    f"Heightmap exported flawlessly to {final_path}!", 
+                    level=Qgis.MessageLevel.Info,
+                    duration=5
+                )
 
-# Band 1
-# STATISTICS_MAXIMUM=3.8260555267334
-# STATISTICS_MEAN=0.81493599656535
-# STATISTICS_MINIMUM=-14.477040290833
-# STATISTICS_STDDEV=1.7102913907796
-# STATISTICS_VALID_PERCENT=100
-# Scale: 1
-# Offset: 0
-# More information
-# DataType=Generic
-# AREA_OR_POINT=Area
-# Dimensions
-# X: 173 Y: 111 Bands: 1
-# Origin
-# 897825.0000000000000000,3370005.0000000000000000
-# Pixel Size
-# 3,-3
+        except Exception as e:
+            QMessageBox.critical(self.iface.mainWindow(), "dang", f"GDAL clip failed: {str(e)}")
+
+    def albedo_export(self, clip_extent):
+        pass
+
