@@ -255,27 +255,35 @@ class Qalc:
             self.first_start = False
             self.dlg = QalqDialog()
             self.dlg.mQgsFileWidget.setStorageMode(self.dlg.mQgsFileWidget.GetDirectory)
-
+            self.dlg.mResolutionComboBox.addItems(['256','505','1024'])
+            self.dlg.mResolutionComboBox.setCurrentText("505")
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
         result = self.dlg.exec()
         # See if OK was pressed
         if result:
-            self.selected_layer = self.dlg.mMapLayerComboBox.currentLayer()
+            #globals set here
+            self.height_layer = self.dlg.mMapLayerComboBox.currentLayer()
+            self.albeto_layer = self.dlg.mAlbedoLayerComboBox.currentLayer()
             self.selected_directory = self.dlg.mQgsFileWidget.filePath()
+            self.grid_resolution = int(self.dlg.mResolutionComboBox.currentText())
+
             self.start()
        
 
     def start(self):
         # missing 
-        selected_layer = self.selected_layer 
+        height_layer = self.height_layer 
+        albeto_layer = self.albeto_layer 
+        grid_resolution = self.grid_resolution
         selected_directory = self.selected_directory 
-        provider = self.selected_layer.dataProvider().name().lower()
-        is_raster = isinstance(selected_layer, QgsRasterLayer)
+
+        provider = self.height_layer.dataProvider().name().lower()
+        is_raster = isinstance(height_layer, QgsRasterLayer)
         invalid_providers = {"wms", "wmts", "xyz", "arcgismapserver", "wfs", "wcs"}
 
-        if not self.selected_layer:
+        if not self.height_layer:
             QMessageBox.warning(self.iface.mainWindow(), "dang!", "no layer selected")
             return
 
@@ -299,26 +307,31 @@ class Qalc:
             )
 
     def crop_extent(self, aoi_extent):
-        # print(f"clipping extent: {aoi_extent.toString()}")
-        input_layer = self.selected_layer
-        if not input_layer:
+        height_input_layer = self.height_layer
+        albeto_input_layer = self.albeto_layer
+        grid_res = self.grid_resolution
+        if not height_input_layer:
             QMessageBox.warning(self.iface.mainWindow(), "dang", "No active layer found.")
             return
 
-        input_path = input_layer.dataProvider().dataSourceUri().split('|')[0]
+        height_input_path = height_input_layer.dataProvider().dataSourceUri().split('|')[0]
+        albeto_input_path = albeto_input_layer.dataProvider().dataSourceUri().split('|')[0]
         proj_win = [
             aoi_extent.xMinimum(),
             aoi_extent.yMaximum(),
             aoi_extent.xMaximum(),
             aoi_extent.yMinimum()
         ]
-        output_path = f"/vsimem/{input_layer}_heightmap.tif"
+        output_path = f"/vsimem/{height_input_layer}_heightmap.tif"
         translate_opts = gdal.TranslateOptions(
             projWin=proj_win,
+            width=grid_res,
+            height=grid_res,
+            resampleAlg=gdal.GRIORA_Bilinear,
             creationOptions=['COMPRESS=NONE','BIGTIFF=IF_NEEDED']
         )
         try:
-            ds = gdal.Translate(output_path, input_path, options=translate_opts)
+            ds = gdal.Translate(output_path, height_input_path, options=translate_opts)
             if ds is not None:
                 ds.FlushCache()
                 cropped_layer = QgsRasterLayer(output_path, "heightmap")
@@ -334,7 +347,10 @@ class Qalc:
                     # outputs:  [ STATS ] =  min=-3.731, max=7.119, mean=1.102
                     min_elev = stats[0]
                     max_elev = stats[1]
+
                     self.height_export(min_elev, max_elev, output_path)
+                    self.albedo_export(proj_win, output_path)
+
                 else:
                     QMessageBox.critical(
                         self.iface.mainWindow(), 
@@ -360,17 +376,33 @@ class Qalc:
             ds = gdal.Translate(final_path, src_path, options=translate_opts)
             if ds is not None:
                 ds.FlushCache()
-
-                self.iface.messageBar().pushMessage(
-                    "Success", 
-                    f"Heightmap exported flawlessly to {final_path}!", 
-                    level=Qgis.MessageLevel.Info,
-                    duration=5
-                )
-
         except Exception as e:
             QMessageBox.critical(self.iface.mainWindow(), "dang", f"GDAL clip failed: {str(e)}")
 
-    def albedo_export(self, clip_extent):
-        pass
+    def albedo_export(self, proj_win, src_path):
+        # map provider rgb map clip->albedo.png
+        final_path = os.path.join(self.selected_directory, "albeto.png")
+        grid_res = self.grid_resolution
+
+
+
+        ####
+        ## left here,
+        ## bandList is current issue only 1,2 available from esri imagery
+        ###
+        translate_opts = gdal.TranslateOptions(
+            outputType=gdal.GDT_Byte,
+            projWin=proj_win,
+            width=grid_res,
+            height=grid_res,
+            bandList=[0,1,2],
+            resampleAlg=gdal.GRIORA_Bilinear
+        )
+
+        try:
+            ds = gdal.Translate(final_path, src_path, options=translate_opts)
+            if ds is not None:
+                ds.FlushCache()
+        except Exception as e:
+            QMessageBox.critical(self.iface.mainWindow(), "dang", f"GDAL clip failed: {str(e)}")
 

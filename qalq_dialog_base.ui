@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>352</width>
-    <height>132</height>
+    <width>408</width>
+    <height>211</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -21,10 +21,40 @@
      </property>
     </widget>
    </item>
+   <item row="1" column="1">
+    <widget class="QgsMapLayerComboBox" name="mMapLayerComboBox"/>
+   </item>
    <item row="2" column="0">
+    <widget class="QLabel" name="label_albedo">
+     <property name="text">
+      <string>albedo layer:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QgsMapLayerComboBox" name="mAlbedoLayerComboBox"/>
+   </item>
+   <item row="3" column="0">
     <widget class="QLabel" name="label_2">
      <property name="text">
       <string>output folder:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <widget class="QgsFileWidget" name="mQgsFileWidget"/>
+   </item>
+   <item row="4" column="0">
+    <widget class="QLabel" name="label_resolution">
+     <property name="text">
+      <string>output resolution:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QComboBox" name="mResolutionComboBox">
+     <property name="currentText">
+      <string>256</string>
      </property>
     </widget>
    </item>
@@ -37,12 +67,6 @@
       <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
      </property>
     </widget>
-   </item>
-   <item row="1" column="1">
-    <widget class="QgsMapLayerComboBox" name="mMapLayerComboBox"/>
-   </item>
-   <item row="2" column="1">
-    <widget class="QgsFileWidget" name="mQgsFileWidget"/>
    </item>
   </layout>
  </widget>
@@ -67,8 +91,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>20</x>
-     <y>20</y>
+     <x>240</x>
+     <y>201</y>
     </hint>
     <hint type="destinationlabel">
      <x>20</x>
@@ -83,8 +107,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>20</x>
-     <y>20</y>
+     <x>240</x>
+     <y>201</y>
     </hint>
     <hint type="destinationlabel">
      <x>20</x>
