@@ -58,10 +58,10 @@ from urllib.parse import parse_qs, unquote
 #region
 class ExtentSet(QgsMapToolEmitPoint):
 
-    def __init__(self, canvas, iface):
+    def __init__(self, canvas, grid_resolution, iface):
         super().__init__(canvas)
         self.canvas = canvas
-        self.size = 505.0
+        self.size = grid_resolution
         self.isDrawing = True
         self.user_selection = None
         self.rubberBand = QgsRubberBand(canvas, Qgis.GeometryType.Polygon)
@@ -273,7 +273,9 @@ class Qalc:
             self.dlg = QalqDialog()
             self.dlg.mQgsFileWidget.setStorageMode(self.dlg.mQgsFileWidget.GetDirectory)
             self.dlg.mResolutionComboBox.addItems(['256','505','1024'])
+            self.dlg.mDPIComboBox.addItems(['150','300','600'])
             self.dlg.mResolutionComboBox.setCurrentText("505")
+            self.dlg.mDPIComboBox.setCurrentText("300")
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
@@ -286,35 +288,35 @@ class Qalc:
             self.cropped_layer = None
             self.selected_directory = self.dlg.mQgsFileWidget.filePath()
             self.grid_resolution = int(self.dlg.mResolutionComboBox.currentText())
+            self.DPI = int(self.dlg.mResolutionComboBox.currentText())
             self.start()
-       
 
     def start(self):
         height_layer = self.height_layer 
         albedo_layer = self.albedo_layer 
         grid_resolution = self.grid_resolution
         selected_directory = self.selected_directory 
-        provider = self.height_layer.dataProvider().name().lower()
+        height_provider = height_layer.dataProvider().name().lower()
+        albedo_provider = albedo_layer.dataProvider().name().lower()
         is_raster = isinstance(height_layer, QgsRasterLayer)
         invalid_providers = {"wms", "wmts", "xyz", "arcgismapserver", "wfs", "wcs"}
-
-        if not self.height_layer:
+        if not height_layer:
             QMessageBox.warning(self.iface.mainWindow(), "dang!", "no layer selected!")
             return
-
-        if not self.selected_directory:
+        if not selected_directory:
             QMessageBox.warning(self.iface.mainWindow(), "dang!", "no output path selected!")
             return
-
-        if provider in invalid_providers:
+        if height_provider in invalid_providers:
             QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid height layer provider!")
             return
-
+        if albedo_provider not in invalid_providers:
+            QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid height layer provider!")
+            return
         if not is_raster:
-            QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid layer type!")
+            QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid height layer type!")
             return
         try:
-            self.tool = ExtentSet(self.canvas, self)
+            self.tool = ExtentSet(self.canvas, grid_resolution, self)
             self.canvas.setMapTool(self.tool)
         except Exception as e:
             self.iface.messageBar().pushMessage(
@@ -399,19 +401,14 @@ class Qalc:
     def albedo_export(self, aoi_extent, albedo_layer):
         final_path = os.path.join(self.selected_directory, "albedo.png")
         grid_res = self.grid_resolution
-
-        # image_location = os.path.join(QgsProject.instance().homePath(), "render.png")
+        dpi = self.DPI
         image_location = final_path
-
-        vlayer = albedo_layer
         settings = QgsMapSettings()
         settings.setLayers([albedo_layer])
         settings.setBackgroundColor(QColor(255, 255, 255))
         settings.setOutputSize(QSize(grid_res, grid_res))
         settings.setExtent(aoi_extent)
-        #### todo: user sets 150/300/600
-        settings.setOutputDpi(600)
-        #####
+        settings.setOutputDpi(dpi)
         settings.setDestinationCrs(self.height_layer.crs()) 
         render = QgsMapRendererParallelJob(settings)
         def finished():
@@ -419,3 +416,6 @@ class Qalc:
             img.save(image_location, "png")
         render.finished.connect(finished)
         render.start()
+
+    def building_export(self):
+        pass
