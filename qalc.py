@@ -93,7 +93,6 @@ class ExtentSet(QgsMapToolEmitPoint):
             center.x() + half_size,
             center.y() + half_size,
         )
-        # this extent set the extent of all exports
         # send execution back to plugin
         self.iface.crop_extent(rect)
 
@@ -301,19 +300,19 @@ class Qalc:
         is_raster = isinstance(height_layer, QgsRasterLayer)
         invalid_providers = {"wms", "wmts", "xyz", "arcgismapserver", "wfs", "wcs"}
         if not height_layer:
-            QMessageBox.warning(self.iface.mainWindow(), "dang!", "no layer selected!")
+            QMessageBox.warning(self.iface.mainWindow(), "dang!", "no layer seleceted!")
             return
         if not selected_directory:
             QMessageBox.warning(self.iface.mainWindow(), "dang!", "no output path selected!")
             return
         if height_provider in invalid_providers:
-            QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid height layer provider!")
+            QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid height layer!")
             return
         if albedo_provider not in invalid_providers:
-            QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid height layer provider!")
+            QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid albedo layer!")
             return
         if not is_raster:
-            QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid height layer type!")
+            QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid height layer!")
             return
         try:
             self.tool = ExtentSet(self.canvas, grid_resolution, self)
@@ -333,15 +332,12 @@ class Qalc:
 
         height_input_path = height_input_layer.dataProvider().dataSourceUri().split('|')[0]
         
-#### left here
         proj_win = [
             aoi_extent.xMinimum(),
             aoi_extent.yMaximum(),
             aoi_extent.xMaximum(),
             aoi_extent.yMinimum()
         ]
-
-
         output_path = f"/vsimem/{height_input_layer}_heightmap.tif"
         translate_opts = gdal.TranslateOptions(
             projWin=proj_win,
@@ -364,10 +360,14 @@ class Qalc:
                     max_elev = stats[1]
                     self.cropped_layer = cropped_layer
 
-                    ###
+                    ### export calls once extent is set
                     ###
                     self.height_export(min_elev, max_elev, output_path)
                     self.albedo_export(aoi_extent, albedo_input_layer)
+                    #
+                    #todo:
+                    #   how to get road spline/building .shp files 
+                    #   exported out at same scale for either blender or unreal
                     ###
                     ###
 
@@ -399,6 +399,7 @@ class Qalc:
             QMessageBox.critical(self.iface.mainWindow(), "dang", f"height export failed: {str(e)}")
 
     def albedo_export(self, aoi_extent, albedo_layer):
+        #basemap clip -> albedo.png, for texture in ue material
         final_path = os.path.join(self.selected_directory, "albedo.png")
         grid_res = self.grid_resolution
         dpi = self.DPI
