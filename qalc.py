@@ -23,7 +23,7 @@
  ***************************************************************************/
 """
 #endregion
-import os
+import os, requests, json
 from qgis.PyQt.QtCore import QLocale, QTranslator, QCoreApplication, QSize, QPointF, QRectF
 from osgeo import gdal
 from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
@@ -44,6 +44,7 @@ from qgis.core import (
     QgsRasterPipe, 
     QgsCoordinateTransform, 
     QgsCoordinateTransformContext,
+    QgsCoordinateReferenceSystem,
     QgsMapRendererParallelJob,
 
 )
@@ -359,17 +360,25 @@ class Qalc:
                     min_elev = stats[0]
                     max_elev = stats[1]
                     self.cropped_layer = cropped_layer
+                    
+                    elev_range = max_elev - min_elev
+                    z_scale = (elev_range/512.0) * 100
+
+                    
 
                     ### export calls once extent is set
                     ###
+
                     self.height_export(min_elev, max_elev, output_path)
-                    self.albedo_export(aoi_extent, albedo_input_layer)
+                    self.albedo_export(aoi_extent, albedo_input_layer,z_scale, min_elev, max_elev, elev_range, grid_res)
+
                     #
                     #todo:
                     #   how to get road spline/building .shp files 
                     #   exported out at same scale for either blender or unreal
                     ###
-                    ###
+                    ### + scale_values idk a better way to call yet
+
 
                 else:
                     QMessageBox.critical(
@@ -382,6 +391,7 @@ class Qalc:
                 raise Exception("dang, gdal.Translate : None")
         except Exception as e:
             QMessageBox.critical(self.iface.mainWindow(), "dang", f"main GDAL clip failed: {str(e)}")
+
 
     def height_export(self, min_elev, max_elev, src_path):
         #in-memory raster clip -> 16bit grayscale png
@@ -398,7 +408,7 @@ class Qalc:
         except Exception as e:
             QMessageBox.critical(self.iface.mainWindow(), "dang", f"height export failed: {str(e)}")
 
-    def albedo_export(self, aoi_extent, albedo_layer):
+    def albedo_export(self, aoi_extent, albedo_layer, z_scale, min_elev, max_elev, elev_range, grid_res):
         #basemap clip -> albedo.png, for texture in ue material
         final_path = os.path.join(self.selected_directory, "albedo.png")
         grid_res = self.grid_resolution
@@ -415,8 +425,22 @@ class Qalc:
         def finished():
             img = render.renderedImage()
             img.save(image_location, "png")
+            self.export_finished(z_scale, min_elev, max_elev, elev_range, grid_res)
         render.finished.connect(finished)
         render.start()
 
-    def building_export(self):
-        pass
+    def export_finished(self, z_scale, min_elev, max_elev, elev_range, grid_res):
+        # x-y-z scaling on import
+        # need to add map scaling on albedo texture but I think thats
+        # same as res
+        copystr = f"X=100.0,Y=100.0,Z={z_scale:.6f}"
+        QMessageBox.information(
+            self.iface.mainWindow(),
+            "Export Finished",
+            f"<b>UE Landscape Scaling:</b><br>"
+            f"{copystr}<br><br>"
+            f"<b>Min Elevation:</b> {min_elev:.2f} m<br>"
+            f"<b>Max Elevation:</b> {max_elev:.2f} m<br>"
+            f"<b>Range:</b> {elev_range:.2f} m<br>"
+        )
+
