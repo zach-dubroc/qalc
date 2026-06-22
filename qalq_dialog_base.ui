@@ -6,75 +6,157 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>420</width>
-    <height>233</height>
+    <width>492</width>
+    <height>226</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Qalc</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="1" colspan="2">
-    <widget class="QgsMapLayerComboBox" name="mMapLayerComboBox"/>
-   </item>
-   <item row="2" column="0">
-    <widget class="QLabel" name="label_2">
-     <property name="text">
-      <string>output folder:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="0">
-    <widget class="QLabel" name="label_resolution_3">
-     <property name="text">
-      <string>DPI:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="1" colspan="2">
-    <widget class="QgsFileWidget" name="mQgsFileWidget"/>
-   </item>
-   <item row="5" column="1" colspan="2">
-    <widget class="QDialogButtonBox" name="button_box">
-     <property name="orientation">
-      <enum>Qt::Orientation::Horizontal</enum>
-     </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="1">
-    <widget class="QComboBox" name="mDPIComboBox"/>
-   </item>
-   <item row="1" column="1" colspan="2">
-    <widget class="QgsMapLayerComboBox" name="mAlbedoLayerComboBox"/>
-   </item>
-   <item row="3" column="1">
-    <widget class="QComboBox" name="mResolutionComboBox"/>
-   </item>
-   <item row="3" column="0">
-    <widget class="QLabel" name="label_resolution">
-     <property name="text">
-      <string>output resolution:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="0">
-    <widget class="QLabel" name="label_albedo">
-     <property name="text">
-      <string>albedo layer:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="0">
-    <widget class="QLabel" name="label">
-     <property name="text">
-      <string>elevation layer:</string>
-     </property>
-    </widget>
-   </item>
-  </layout>
+  <widget class="QgsMapLayerComboBox" name="mMapLayerComboBox">
+   <property name="geometry">
+    <rect>
+     <x>110</x>
+     <y>9</y>
+     <width>161</width>
+     <height>26</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_2">
+   <property name="geometry">
+    <rect>
+     <x>19</x>
+     <y>116</y>
+     <width>73</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>output folder:</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_resolution_3">
+   <property name="geometry">
+    <rect>
+     <x>19</x>
+     <y>180</y>
+     <width>21</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>DPI:</string>
+   </property>
+  </widget>
+  <widget class="QgsFileWidget" name="mQgsFileWidget">
+   <property name="geometry">
+    <rect>
+     <x>120</x>
+     <y>116</y>
+     <width>141</width>
+     <height>26</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QDialogButtonBox" name="button_box">
+   <property name="geometry">
+    <rect>
+     <x>300</x>
+     <y>180</y>
+     <width>168</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Orientation::Horizontal</enum>
+   </property>
+   <property name="standardButtons">
+    <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="mDPIComboBox">
+   <property name="geometry">
+    <rect>
+     <x>120</x>
+     <y>180</y>
+     <width>89</width>
+     <height>26</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="mResolutionComboBox">
+   <property name="geometry">
+    <rect>
+     <x>120</x>
+     <y>148</y>
+     <width>89</width>
+     <height>26</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_resolution">
+   <property name="geometry">
+    <rect>
+     <x>19</x>
+     <y>148</y>
+     <width>95</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>output resolution:</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>10</y>
+     <width>80</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>elevation layer:</string>
+   </property>
+  </widget>
+  <widget class="QListWidget" name="albedo_listWidget">
+   <property name="geometry">
+    <rect>
+     <x>290</x>
+     <y>30</y>
+     <width>191</width>
+     <height>147</height>
+    </rect>
+   </property>
+   <property name="acceptDrops">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QgsMapLayerComboBox" name="mAlbedoLayerComboBox">
+   <property name="geometry">
+    <rect>
+     <x>110</x>
+     <y>50</y>
+     <width>161</width>
+     <height>26</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_albedo">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>50</y>
+     <width>73</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>albedo layers:</string>
+   </property>
+  </widget>
  </widget>
  <customwidgets>
   <customwidget>

@@ -53,7 +53,7 @@ from .qalq_dialog import QalqDialog
 import os.path
 from urllib.parse import parse_qs, unquote
 
-#######
+######
 ####selection tool
 ######
 #region
@@ -276,6 +276,9 @@ class Qalc:
             self.dlg.mDPIComboBox.addItems(['150','300','600'])
             self.dlg.mResolutionComboBox.setCurrentText("505")
             self.dlg.mDPIComboBox.setCurrentText("300")
+            self.albedo_name_list = self.dlg.albedo_listWidget
+            self.albedo_object_list = []
+            self.dlg.mAlbedoLayerComboBox.layerChanged.connect(self.add_albedo_layer)
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
@@ -291,9 +294,21 @@ class Qalc:
             self.DPI = int(self.dlg.mResolutionComboBox.currentText())
             self.start()
 
+    def add_albedo_layer(self):
+        albedo_layer = self.dlg.mAlbedoLayerComboBox.currentLayer()
+        self.albedo_name_list.addItems([albedo_layer.name()])
+        self.albedo_object_list.append(albedo_layer)
+
+
+
     def start(self):
         height_layer = self.height_layer 
         albedo_layer = self.albedo_layer 
+       
+        for i in self.albedo_object_list:
+            print("layer: ")
+            print(i.name())
+        
         grid_resolution = self.grid_resolution
         selected_directory = self.selected_directory 
         height_provider = height_layer.dataProvider().name().lower()
@@ -306,13 +321,7 @@ class Qalc:
         if not selected_directory:
             QMessageBox.warning(self.iface.mainWindow(), "dang!", "no output path selected!")
             return
-        if height_provider in invalid_providers:
-            QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid height layer!")
-            return
-        if albedo_provider not in invalid_providers:
-            QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid albedo layer!")
-            return
-        if not is_raster:
+        if height_provider in invalid_providers or not is_raster:
             QMessageBox.warning(self.iface.mainWindow(), "dang!", "invalid height layer!")
             return
         try:
@@ -325,7 +334,7 @@ class Qalc:
 
     def crop_extent(self, aoi_extent):
         height_input_layer = self.height_layer
-        albedo_input_layer = self.albedo_layer
+        # albedo_input_layer = self.albedo_layer
         grid_res = self.grid_resolution
         if not height_input_layer:
             QMessageBox.warning(self.iface.mainWindow(), "dang", "No active layer found.")
@@ -364,21 +373,15 @@ class Qalc:
                     elev_range = max_elev - min_elev
                     z_scale = (elev_range/512.0) * 100
 
-                    
-
                     ### export calls once extent is set
                     ###
-
                     self.height_export(min_elev, max_elev, output_path)
-                    self.albedo_export(aoi_extent, albedo_input_layer,z_scale, min_elev, max_elev, elev_range, grid_res)
 
-                    #
-                    #todo:
-                    #   how to get road spline/building .shp files 
-                    #   exported out at same scale for either blender or unreal
+                    # export all texture layers
+                    for layer in self.albedo_object_list:
+                        self.albedo_export(aoi_extent, layer, z_scale, min_elev, max_elev, elev_range, grid_res)
                     ###
-                    ### + scale_values idk a better way to call yet
-
+                    ###
 
                 else:
                     QMessageBox.critical(
@@ -410,7 +413,7 @@ class Qalc:
 
     def albedo_export(self, aoi_extent, albedo_layer, z_scale, min_elev, max_elev, elev_range, grid_res):
         #basemap clip -> albedo.png, for texture in ue material
-        final_path = os.path.join(self.selected_directory, "albedo.png")
+        final_path = os.path.join(self.selected_directory, f"{albedo_layer.name()}_albedo.png")
         grid_res = self.grid_resolution
         dpi = self.DPI
         image_location = final_path
@@ -425,7 +428,8 @@ class Qalc:
         def finished():
             img = render.renderedImage()
             img.save(image_location, "png")
-            self.export_finished(z_scale, min_elev, max_elev, elev_range, grid_res)
+            #need to add lock for only one call per crop this will render once for each png
+            # self.export_finished(z_scale, min_elev, max_elev, elev_range, grid_res)
         render.finished.connect(finished)
         render.start()
 
