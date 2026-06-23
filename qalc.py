@@ -23,7 +23,7 @@
  ***************************************************************************/
 """
 #endregion
-import os, requests, json
+import os, json
 from qgis.PyQt.QtCore import QLocale, QTranslator, QCoreApplication, QSize, QPointF, QRectF
 from osgeo import gdal
 from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
@@ -271,14 +271,19 @@ class Qalc:
         if self.first_start == True:
             self.first_start = False
             self.dlg = QalqDialog()
+            self.export_jobs = 0 
             self.dlg.mQgsFileWidget.setStorageMode(self.dlg.mQgsFileWidget.GetDirectory)
+
             self.dlg.mResolutionComboBox.addItems(['256','505','1024'])
             self.dlg.mDPIComboBox.addItems(['150','300','600'])
             self.dlg.mResolutionComboBox.setCurrentText("505")
             self.dlg.mDPIComboBox.setCurrentText("300")
+
             self.albedo_name_list = self.dlg.albedo_listWidget
             self.albedo_object_list = []
             self.dlg.mAlbedoLayerComboBox.layerChanged.connect(self.add_albedo_layer)
+            self.dlg.clear_albedo_pushButton.clicked.connect(self.reset_albedo)
+
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
@@ -291,28 +296,27 @@ class Qalc:
             self.cropped_layer = None
             self.selected_directory = self.dlg.mQgsFileWidget.filePath()
             self.grid_resolution = int(self.dlg.mResolutionComboBox.currentText())
-            self.DPI = int(self.dlg.mResolutionComboBox.currentText())
+            self.DPI = int(self.dlg.mDPIComboBox.currentText())
             self.start()
+
 
     def add_albedo_layer(self):
         albedo_layer = self.dlg.mAlbedoLayerComboBox.currentLayer()
         self.albedo_name_list.addItems([albedo_layer.name()])
         self.albedo_object_list.append(albedo_layer)
+        self.export_jobs += 1
 
+    def reset_albedo(self):
+        self.albedo_name_list.clear()
+        self.albedo_object_list = []
+        self.export_jobs = 0
 
 
     def start(self):
         height_layer = self.height_layer 
-        albedo_layer = self.albedo_layer 
-       
-        for i in self.albedo_object_list:
-            print("layer: ")
-            print(i.name())
-        
         grid_resolution = self.grid_resolution
         selected_directory = self.selected_directory 
         height_provider = height_layer.dataProvider().name().lower()
-        albedo_provider = albedo_layer.dataProvider().name().lower()
         is_raster = isinstance(height_layer, QgsRasterLayer)
         invalid_providers = {"wms", "wmts", "xyz", "arcgismapserver", "wfs", "wcs"}
         if not height_layer:
@@ -334,7 +338,6 @@ class Qalc:
 
     def crop_extent(self, aoi_extent):
         height_input_layer = self.height_layer
-        # albedo_input_layer = self.albedo_layer
         grid_res = self.grid_resolution
         if not height_input_layer:
             QMessageBox.warning(self.iface.mainWindow(), "dang", "No active layer found.")
@@ -380,6 +383,7 @@ class Qalc:
                     # export all texture layers
                     for layer in self.albedo_object_list:
                         self.albedo_export(aoi_extent, layer, z_scale, min_elev, max_elev, elev_range, grid_res)
+
                     ###
                     ###
 
@@ -428,8 +432,9 @@ class Qalc:
         def finished():
             img = render.renderedImage()
             img.save(image_location, "png")
-            #need to add lock for only one call per crop this will render once for each png
-            # self.export_finished(z_scale, min_elev, max_elev, elev_range, grid_res)
+            self.export_jobs -= 1
+            if self.export_jobs == 0:
+                self.export_finished(z_scale, min_elev, max_elev, elev_range, grid_res)
         render.finished.connect(finished)
         render.start()
 
@@ -441,8 +446,10 @@ class Qalc:
         QMessageBox.information(
             self.iface.mainWindow(),
             "Export Finished",
-            f"<b>UE Landscape Scaling:</b><br>"
-            f"{copystr}<br><br>"
+            f"<b>Landscape XYZ Scaling:</b><br>"
+            f"{copystr}<br>"
+            f"<b>Texture Map Scaling:</b> {grid_res:.2f} m<br>"
+            f"<br><br>"
             f"<b>Min Elevation:</b> {min_elev:.2f} m<br>"
             f"<b>Max Elevation:</b> {max_elev:.2f} m<br>"
             f"<b>Range:</b> {elev_range:.2f} m<br>"

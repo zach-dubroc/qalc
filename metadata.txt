@@ -11,9 +11,9 @@ description=Automations for generating UnrealEngine heightmaps from terrain data
 version=0.2
 author=shark_blood_studio
 email=zacharydubroc@outlook.com
-
-changelog=0.2
-- option to export multiple texture layers
+changelog=0.2 - 
+ - option for multiple albedo exports
+ - .csv export for road splines
 
 about=QGIS to UnrealEngine Landscape automation tool
 
@@ -21,6 +21,7 @@ tracker=https://github.com/zach-dubroc/qalc.git
 repository=https://github.com/zach-dubroc/qalc
 license=GNU GPL v2
 # End of mandatory metadata
+
 
 # Recommended items:
 
