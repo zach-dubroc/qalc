@@ -23,7 +23,7 @@
  ***************************************************************************/
 """
 #endregion
-import os, json
+import os, json, urllib.request, urllib.parse
 from qgis.PyQt.QtCore import QLocale, QTranslator, QCoreApplication, QSize, QPointF, QRectF
 from osgeo import gdal
 from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
@@ -46,8 +46,8 @@ from qgis.core import (
     QgsCoordinateTransformContext,
     QgsCoordinateReferenceSystem,
     QgsMapRendererParallelJob,
-
 )
+
 # Import the code for the dialog
 from .qalq_dialog import QalqDialog
 import os.path
@@ -112,8 +112,7 @@ class ExtentSet(QgsMapToolEmitPoint):
         self.rubberBand.reset()
         super().deactivate()
 ######
-####end
-####selection tool
+####end selection tool
 ######
 #endregion
 
@@ -299,7 +298,6 @@ class Qalc:
             self.DPI = int(self.dlg.mDPIComboBox.currentText())
             self.start()
 
-
     def add_albedo_layer(self):
         albedo_layer = self.dlg.mAlbedoLayerComboBox.currentLayer()
         self.albedo_name_list.addItems([albedo_layer.name()])
@@ -310,7 +308,6 @@ class Qalc:
         self.albedo_name_list.clear()
         self.albedo_object_list = []
         self.export_jobs = 0
-
 
     def start(self):
         height_layer = self.height_layer 
@@ -377,15 +374,17 @@ class Qalc:
                     z_scale = (elev_range/512.0) * 100
 
                     ### export calls once extent is set
-                    ###
+
+                    # heightmap.png
                     self.height_export(min_elev, max_elev, output_path)
 
-                    # export all texture layers
+                    # albedos.png
                     for layer in self.albedo_object_list:
                         self.albedo_export(aoi_extent, layer, z_scale, min_elev, max_elev, elev_range, grid_res)
 
-                    ###
-                    ###
+                    #roads.json
+                    self.fetch_roads(aoi_extent, self.height_layer.crs())
+
 
                 else:
                     QMessageBox.critical(
@@ -398,7 +397,6 @@ class Qalc:
                 raise Exception("dang, gdal.Translate : None")
         except Exception as e:
             QMessageBox.critical(self.iface.mainWindow(), "dang", f"main GDAL clip failed: {str(e)}")
-
 
     def height_export(self, min_elev, max_elev, src_path):
         #in-memory raster clip -> 16bit grayscale png
@@ -429,12 +427,19 @@ class Qalc:
         settings.setOutputDpi(dpi)
         settings.setDestinationCrs(self.height_layer.crs()) 
         render = QgsMapRendererParallelJob(settings)
+
+        if not hasattr(self, 'active_renders'):
+            self.active_renders = []
+        self.active_renders.append(render)
+
         def finished():
-            img = render.renderedImage()
-            img.save(image_location, "png")
-            self.export_jobs -= 1
-            if self.export_jobs == 0:
-                self.export_finished(z_scale, min_elev, max_elev, elev_range, grid_res)
+                img = render.renderedImage()
+                img.save(image_location, "png")
+                self.export_jobs -= 1
+                if render in self.active_renders:
+                    self.active_renders.remove(render)
+                if self.export_jobs == 0:
+                    self.export_finished(z_scale, min_elev, max_elev, elev_range, grid_res)
         render.finished.connect(finished)
         render.start()
 
@@ -454,4 +459,52 @@ class Qalc:
             f"<b>Max Elevation:</b> {max_elev:.2f} m<br>"
             f"<b>Range:</b> {elev_range:.2f} m<br>"
         )
+
+    ### overpass start ###
+    def fetch_roads(self, aoi_extent, source_crs):
+        target_crs = QgsCoordinateReferenceSystem("EPSG:4326")
+        transform_context = QgsProject.instance().transformContext()
+        transformer = QgsCoordinateTransform(source_crs, target_crs, transform_context)
+
+        wgs_extent = transformer.transformBoundingBox(aoi_extent)
+        
+        south = wgs_extent.yMinimum()
+        west = wgs_extent.xMinimum()
+        north = wgs_extent.yMaximum()
+        east = wgs_extent.xMaximum()
+
+    # (Qg),"(XMin,  YMin, XMax, YMax)", "(West, South, East, North)"
+    # (QL),"(South, West, North, East)","(YMin, XMin,  YMax, XMax)"
+    #
+    #todo: add to map/gdal clip to aoi
+        overpass_ql = f"""
+        [out:json][timeout:30];
+        (
+        way["highway"]({south}, {west}, {north}, {east});
+        );
+        out geom;
+        """
+
+        url = "https://overpass-api.de/api/interpreter"
+        data = urllib.parse.urlencode({'data': overpass_ql}).encode('utf-8')
+        req = urllib.request.Request(url, data=data, headers={'User-Agent':'QGIS-Qalc-Plugin/1.0'})
+        
+        try:
+            with urllib.request.urlopen(req) as response:
+               raw = response.read().decode('utf-8')
+               parsed = json.loads(raw)
+               output_file = os.path.join(self.selected_directory, "roads.json")
+
+               with open(output_file, 'w', encoding='utf-8') as f:
+                   json.dump(parsed, f, indent=4)
+
+        except Exception as e:
+            QMessageBox.critical(self.iface.mainWindow(), "dang", f"overpass error failed: {str(e)}")
+            return None
+
+
+    
+
+
+
 
