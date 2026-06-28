@@ -13,7 +13,7 @@ author=shark_blood_studio
 email=zacharydubroc@outlook.com
 changelog=0.2 - 
  - option for multiple albedo exports
- - .csv export for road splines
+ - export for roads/buildings 
 
 about=QGIS to UnrealEngine Landscape automation tool
 

@@ -1,4 +1,3 @@
-#region
 # -*- coding: utf-8 -*-
 """
 /***************************************************************************
@@ -22,14 +21,23 @@
  *                                                                         *
  ***************************************************************************/
 """
-#endregion
-import os, json, urllib.request, urllib.parse
-from qgis.PyQt.QtCore import QLocale, QTranslator, QCoreApplication, QSize, QPointF, QRectF
-from osgeo import gdal
-from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
-from qgis.PyQt.QtGui import QIcon
-from qgis.gui import QgsMapToolEmitPoint, QgsRubberBand
-from qgis.PyQt.QtGui import QColor
+import os
+import json
+import urllib.request
+import urllib.parse
+
+from qgis.PyQt.QtCore import (
+   QLocale,
+   QTranslator,
+   QCoreApplication,
+   QSize, 
+   QPointF, 
+   QRectF,
+   QObject,
+   pyqtSignal,
+   QRunnable,
+   QThreadPool
+)
 from qgis.core import (
     QgsRectangle,
     QgsGeometry, 
@@ -47,15 +55,19 @@ from qgis.core import (
     QgsCoordinateReferenceSystem,
     QgsMapRendererParallelJob,
 )
+from osgeo import gdal
+from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
+from qgis.PyQt.QtGui import QIcon
+from qgis.gui import QgsMapToolEmitPoint, QgsRubberBand
+from qgis.PyQt.QtGui import QColor
 
 # Import the code for the dialog
 from .qalq_dialog import QalqDialog
 import os.path
 from urllib.parse import parse_qs, unquote
 
-######
-####selection tool
-######
+
+##selection tool##
 #region
 class ExtentSet(QgsMapToolEmitPoint):
 
@@ -115,6 +127,63 @@ class ExtentSet(QgsMapToolEmitPoint):
 ####end selection tool
 ######
 #endregion
+##end selection tool##
+
+##osm download##
+
+#region
+class OSMWSignals(QObject):
+    finished = pyqtSignal(str)
+    error = pyqtSignal(str)
+
+class OSMWorker(QRunnable):
+    def __init__(self, south, west, north, east, output_directory):
+        super().__init__()      
+        self.signals = OSMWSignals()
+        self.south = south
+        self.west = west
+        self.north = north
+        self.east = east
+        self.output_directory = output_directory
+    def run(self):
+        bbox=f"{self.south},{self.west},{self.north},{self.east}"
+        over_ql=f"""
+        [out:xml][timeout:90];
+        (
+            node({bbox});
+            way({bbox});
+            relation({bbox});
+        );
+        out body;
+        >;
+        out skel qt;
+        """
+        url = "https://overpass-api.de/api/interpreter"
+        output_file = os.path.join(self.output_directory, "aoi_data.osm")
+        try:
+            data = urllib.parse.urlencode({'data': over_ql}).encode('utf-8')
+            req = urllib.request.Request(
+                url,
+                data=data,
+                headers={'User-Agent':'QGIS-Qalc-Plugin/1.0'}
+            )
+            with urllib.request.urlopen(req) as response:
+               with open(output_file, 'wb') as f:
+                   block_size = 1024*8
+                   while True:
+                       buffer = response.read(block_size)
+                       if not buffer:
+                           break
+                       f.write(buffer)
+            self.signals.finished.emit(output_file)
+        except Exception as e:
+            self.signals.error.emit(str(e))
+        
+#endregion
+
+##end osm download##
+
+
 
 class Qalc:
 #gen from plugin_template
@@ -383,8 +452,7 @@ class Qalc:
                         self.albedo_export(aoi_extent, layer, z_scale, min_elev, max_elev, elev_range, grid_res)
 
                     #roads.json
-                    self.fetch_roads(aoi_extent, self.height_layer.crs())
-
+                    self.fetch_osm(aoi_extent, self.height_layer.crs())
 
                 else:
                     QMessageBox.critical(
@@ -460,51 +528,44 @@ class Qalc:
             f"<b>Range:</b> {elev_range:.2f} m<br>"
         )
 
+    
     ### overpass start ###
-    def fetch_roads(self, aoi_extent, source_crs):
+    def fetch_osm(self, aoi_extent, source_crs):
         target_crs = QgsCoordinateReferenceSystem("EPSG:4326")
         transform_context = QgsProject.instance().transformContext()
         transformer = QgsCoordinateTransform(source_crs, target_crs, transform_context)
-
         wgs_extent = transformer.transformBoundingBox(aoi_extent)
         
         south = wgs_extent.yMinimum()
         west = wgs_extent.xMinimum()
         north = wgs_extent.yMaximum()
         east = wgs_extent.xMaximum()
-
-    # (Qg),"(XMin,  YMin, XMax, YMax)", "(West, South, East, North)"
-    # (QL),"(South, West, North, East)","(YMin, XMin,  YMax, XMax)"
-    #
-    #todo: add to map/gdal clip to aoi
-        overpass_ql = f"""
-        [out:json][timeout:30];
-        (
-        way["highway"]({south}, {west}, {north}, {east});
-        );
-        out geom;
-        """
-
-        url = "https://overpass-api.de/api/interpreter"
-        data = urllib.parse.urlencode({'data': overpass_ql}).encode('utf-8')
-        req = urllib.request.Request(url, data=data, headers={'User-Agent':'QGIS-Qalc-Plugin/1.0'})
         
-        try:
-            with urllib.request.urlopen(req) as response:
-               raw = response.read().decode('utf-8')
-               parsed = json.loads(raw)
-               output_file = os.path.join(self.selected_directory, "roads.json")
+        w = OSMWorker(south,west,north,east,self.selected_directory)
+        w.signals.finished.connect(self.on_osm_success)
+        w.signals.error.connect(self.on_osm_failed)
 
-               with open(output_file, 'w', encoding='utf-8') as f:
-                   json.dump(parsed, f, indent=4)
+        QThreadPool.globalInstance().start(w)
+        self.iface.messageBar().pushMessage(
+            "Qalc",
+            "dowlnoading OSM data",
+            Qgis.MessageLevel.Info,
+            5
+        )
 
-        except Exception as e:
-            QMessageBox.critical(self.iface.mainWindow(), "dang", f"overpass error failed: {str(e)}")
-            return None
+    def on_osm_success(self, path):
+        self.iface.messageBar().pushMessage(
+            "Qalc",
+            f"OSM data saved to: {os.path.basename(path)}",
+            Qgis.MessageLevel.Success,
+            5
+        )
 
-
-    
-
-
+    def on_osm_failed(self, error_msg):
+        QMessageBox.critical(self.iface.mainWindow(),
+            "dang",
+            f"OSM download failed: {str(error_msg)}"
+        )
+    ### overpass end ###
 
 

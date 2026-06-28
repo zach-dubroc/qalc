@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>422</width>
+    <width>491</width>
     <height>221</height>
    </rect>
   </property>
@@ -16,9 +16,9 @@
   <widget class="QgsMapLayerComboBox" name="mMapLayerComboBox">
    <property name="geometry">
     <rect>
-     <x>120</x>
+     <x>145</x>
      <y>9</y>
-     <width>151</width>
+     <width>186</width>
      <height>26</height>
     </rect>
    </property>
@@ -28,7 +28,7 @@
     <rect>
      <x>10</x>
      <y>118</y>
-     <width>73</width>
+     <width>96</width>
      <height>16</height>
     </rect>
    </property>
@@ -41,7 +41,7 @@
     <rect>
      <x>10</x>
      <y>182</y>
-     <width>21</width>
+     <width>41</width>
      <height>16</height>
     </rect>
    </property>
@@ -52,9 +52,9 @@
   <widget class="QgsFileWidget" name="mQgsFileWidget">
    <property name="geometry">
     <rect>
-     <x>120</x>
+     <x>145</x>
      <y>116</y>
-     <width>141</width>
+     <width>186</width>
      <height>26</height>
     </rect>
    </property>
@@ -62,7 +62,7 @@
   <widget class="QDialogButtonBox" name="button_box">
    <property name="geometry">
     <rect>
-     <x>250</x>
+     <x>305</x>
      <y>175</y>
      <width>168</width>
      <height>26</height>
@@ -78,7 +78,7 @@
   <widget class="QComboBox" name="mDPIComboBox">
    <property name="geometry">
     <rect>
-     <x>120</x>
+     <x>145</x>
      <y>182</y>
      <width>89</width>
      <height>26</height>
@@ -88,7 +88,7 @@
   <widget class="QComboBox" name="mResolutionComboBox">
    <property name="geometry">
     <rect>
-     <x>120</x>
+     <x>145</x>
      <y>150</y>
      <width>89</width>
      <height>26</height>
@@ -100,7 +100,7 @@
     <rect>
      <x>10</x>
      <y>150</y>
-     <width>95</width>
+     <width>111</width>
      <height>16</height>
     </rect>
    </property>
@@ -113,7 +113,7 @@
     <rect>
      <x>10</x>
      <y>15</y>
-     <width>80</width>
+     <width>101</width>
      <height>16</height>
     </rect>
    </property>
@@ -124,7 +124,7 @@
   <widget class="QListWidget" name="albedo_listWidget">
    <property name="geometry">
     <rect>
-     <x>285</x>
+     <x>340</x>
      <y>50</y>
      <width>131</width>
      <height>91</height>
@@ -137,9 +137,9 @@
   <widget class="QgsMapLayerComboBox" name="mAlbedoLayerComboBox">
    <property name="geometry">
     <rect>
-     <x>120</x>
+     <x>145</x>
      <y>50</y>
-     <width>151</width>
+     <width>186</width>
      <height>26</height>
     </rect>
    </property>
@@ -149,18 +149,18 @@
     <rect>
      <x>10</x>
      <y>55</y>
-     <width>73</width>
+     <width>96</width>
      <height>16</height>
     </rect>
    </property>
    <property name="text">
-    <string>albedo layers:</string>
+    <string>albedo layer(s):</string>
    </property>
   </widget>
   <widget class="QPushButton" name="clear_albedo_pushButton">
    <property name="geometry">
     <rect>
-     <x>360</x>
+     <x>415</x>
      <y>20</y>
      <width>56</width>
      <height>26</height>
