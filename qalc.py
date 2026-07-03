@@ -56,7 +56,7 @@ from qgis.core import (
     QgsMapRendererParallelJob,
 )
 from osgeo import gdal
-from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
+from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox, QProgressBar
 from qgis.PyQt.QtGui import QIcon
 from qgis.gui import QgsMapToolEmitPoint, QgsRubberBand
 from qgis.PyQt.QtGui import QColor
@@ -133,6 +133,8 @@ class ExtentSet(QgsMapToolEmitPoint):
 
 #region
 class OSMWSignals(QObject):
+    
+    progress = pyqtSignal(int)
     finished = pyqtSignal(str)
     error = pyqtSignal(str)
 
@@ -168,6 +170,8 @@ class OSMWorker(QRunnable):
                 headers={'User-Agent':'QGIS-Qalc-Plugin/1.0'}
             )
             with urllib.request.urlopen(req) as response:
+               size=int(response.info().get('Content-Length', 0))
+               downloaded=0
                with open(output_file, 'wb') as f:
                    block_size = 1024*8
                    while True:
@@ -175,7 +179,13 @@ class OSMWorker(QRunnable):
                        if not buffer:
                            break
                        f.write(buffer)
-            self.signals.finished.emit(output_file)
+
+                       downloaded += len(buffer)
+                       if size>0:
+                           perc = int((downloaded/size)*100)
+                           self.signals.progress.emit(perc)
+
+            self.signals.finished.emit(output_file) 
         except Exception as e:
             self.signals.error.emit(str(e))
         
@@ -369,6 +379,8 @@ class Qalc:
 
     def add_albedo_layer(self):
         albedo_layer = self.dlg.mAlbedoLayerComboBox.currentLayer()
+        if albedo_layer is None:
+            return
         self.albedo_name_list.addItems([albedo_layer.name()])
         self.albedo_object_list.append(albedo_layer)
         self.export_jobs += 1
@@ -528,9 +540,9 @@ class Qalc:
             f"<b>Range:</b> {elev_range:.2f} m<br>"
         )
 
-    
     ### overpass start ###
     def fetch_osm(self, aoi_extent, source_crs):
+
         target_crs = QgsCoordinateReferenceSystem("EPSG:4326")
         transform_context = QgsProject.instance().transformContext()
         transformer = QgsCoordinateTransform(source_crs, target_crs, transform_context)
@@ -540,32 +552,38 @@ class Qalc:
         west = wgs_extent.xMinimum()
         north = wgs_extent.yMaximum()
         east = wgs_extent.xMaximum()
+
         
         w = OSMWorker(south,west,north,east,self.selected_directory)
+
+        self.progress_bar = QProgressBar()
+        # self.progress_bar.setMaximum(100)
+        self.progress_bar.setRange(0,0)
+        
+        w.signals.progress.connect(self.progress_bar.setValue)
         w.signals.finished.connect(self.on_osm_success)
         w.signals.error.connect(self.on_osm_failed)
+        
+        msg = self.iface.messageBar().createMessage("Qalc", "downloading OSM data")
+        msg.layout().addWidget(self.progress_bar)
+        self.iface.messageBar().pushWidget(msg, Qgis.MessageLevel.Info)
 
         QThreadPool.globalInstance().start(w)
-        self.iface.messageBar().pushMessage(
-            "Qalc",
-            "dowlnoading OSM data",
-            Qgis.MessageLevel.Info,
-            5
-        )
 
     def on_osm_success(self, path):
+        self.iface.messageBar().clearWidgets()
         self.iface.messageBar().pushMessage(
             "Qalc",
             f"OSM data saved to: {os.path.basename(path)}",
             Qgis.MessageLevel.Success,
-            5
+            3
         )
 
     def on_osm_failed(self, error_msg):
+        self.iface.messageBar().clearWidgets()
         QMessageBox.critical(self.iface.mainWindow(),
             "dang",
             f"OSM download failed: {str(error_msg)}"
         )
     ### overpass end ###
-
 

@@ -7,15 +7,12 @@
 name=Qalc
 qgisMinimumVersion=4.0
 qgisMaximumVersion=4.99
-description=Automations for generating UnrealEngine heightmaps from terrain data
+description=Automations for generating 3D environments from raw GIS data
 version=0.2
 author=shark_blood_studio
 email=zacharydubroc@outlook.com
-changelog=0.2 - 
- - option for multiple albedo exports
- - export for roads/buildings 
 
-about=QGIS to UnrealEngine Landscape automation tool
+about=GIS data -> QGIS -> 3D environment
 
 tracker=https://github.com/zach-dubroc/qalc.git
 repository=https://github.com/zach-dubroc/qalc
@@ -27,7 +24,10 @@ license=GNU GPL v2
 
 hasProcessingProvider=no
 # Uncomment the following line and add your changelog:
-# changelog=
+changelog=0.2 - 
+ - option for multiple albedo exports
+ - export for roads/buildings 
+ - sequence issue fixed
 
 # Tags are comma separated with spaces allowed
 tags=python
