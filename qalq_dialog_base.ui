@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>491</width>
-    <height>221</height>
+    <width>444</width>
+    <height>219</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -62,8 +62,8 @@
   <widget class="QDialogButtonBox" name="button_box">
    <property name="geometry">
     <rect>
-     <x>305</x>
-     <y>175</y>
+     <x>250</x>
+     <y>165</y>
      <width>168</width>
      <height>26</height>
     </rect>
@@ -121,19 +121,6 @@
     <string>elevation layer:</string>
    </property>
   </widget>
-  <widget class="QListWidget" name="albedo_listWidget">
-   <property name="geometry">
-    <rect>
-     <x>340</x>
-     <y>50</y>
-     <width>131</width>
-     <height>91</height>
-    </rect>
-   </property>
-   <property name="acceptDrops">
-    <bool>true</bool>
-   </property>
-  </widget>
   <widget class="QgsMapLayerComboBox" name="mAlbedoLayerComboBox">
    <property name="geometry">
     <rect>
@@ -154,20 +141,7 @@
     </rect>
    </property>
    <property name="text">
-    <string>albedo layer(s):</string>
-   </property>
-  </widget>
-  <widget class="QPushButton" name="clear_albedo_pushButton">
-   <property name="geometry">
-    <rect>
-     <x>415</x>
-     <y>20</y>
-     <width>56</width>
-     <height>26</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>reset</string>
+    <string>albedo layer:</string>
    </property>
   </widget>
  </widget>
