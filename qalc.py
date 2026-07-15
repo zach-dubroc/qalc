@@ -188,7 +188,6 @@ class OSMWorker(QRunnable):
             self.signals.finished.emit(output_file)
         except Exception as e:
             self.signals.error.emit(f"overpass error: {str(e)}")
-
 # endregion
 ## end osm download ##
 
@@ -207,7 +206,7 @@ class GDALWorker(QRunnable):
 
     def run(self):
         try:
-            self.signals.progress.emit(10)
+            self.signals.progress.emit(0)
             proj_win = [
                 self.aoi_extent.xMinimum(),
                 self.aoi_extent.yMaximum(),
@@ -231,7 +230,7 @@ class GDALWorker(QRunnable):
             if ds is not None:
                 ds.FlushCache()
 
-                self.signals.progress.emit(40)
+                self.signals.progress.emit(0)
                 gtif = gdal.Open(cropped_path)
                 elevation_band = gtif.GetRasterBand(1)
                 stats = elevation_band.GetStatistics(True, True)
@@ -240,7 +239,6 @@ class GDALWorker(QRunnable):
                 elev_range = max_elev - min_elev
                 gtif = None
 
-            self.signals.progress.emit(60)
 
             final_path = os.path.join(self.output_dir, "heightmap.png")
             translate_opts = gdal.TranslateOptions(
@@ -252,7 +250,6 @@ class GDALWorker(QRunnable):
             if ds is not None:
                 ds.FlushCache()
 
-            self.signals.progress.emit(90)
             self.signals.gdal_finished.emit(cropped_path, min_elev, max_elev, elev_range)
 
         except Exception as e:
@@ -463,6 +460,7 @@ class Qalc:
 
             ## heightmap ##
     def crop_extent(self, aoi_extent):
+        self.aoi_extent = aoi_extent
         height_input_layer = self.height_layer
 
         height_input_path = (
@@ -478,13 +476,13 @@ class Qalc:
         )
 
         self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setRange(0, 0)
 
         w.signals.progress.connect(self.progress_bar.setValue)
         w.signals.gdal_finished.connect(self.on_gdal_success)
         w.signals.error.connect(self.on_gdal_failed)
 
-        msg = self.iface.messageBar().createMessage("Qalc", "exporting heightmap")
+        msg = self.iface.messageBar().createMessage("Qalc", "exporting images ")
         msg.layout().addWidget(self.progress_bar)
         self.iface.messageBar().pushWidget(msg, Qgis.MessageLevel.Info)
 
@@ -494,13 +492,14 @@ class Qalc:
     def on_gdal_success(self, output_path, min_elev, max_elev, elev_range):
         aoi_extent = self.aoi_extent
         self.iface.messageBar().clearWidgets()
-
         cropped_layer = QgsRasterLayer(output_path, "heightmap")
         if cropped_layer.isValid():
             QgsProject.instance().addMapLayer(cropped_layer)
             self.cropped_layer = cropped_layer
 
             z_scale = (elev_range / 512.0) * 100
+
+            self.fetch_osm(self.aoi_extent, self.height_layer.crs())
 
             self.albedo_export(
                 self.aoi_extent,
@@ -509,12 +508,11 @@ class Qalc:
                 min_elev,
                 max_elev,
                 elev_range,
-                self.grid_res,
+                self.grid_resolution,
             )
 
-            self.fetch_osm(self.aoi_extent, self.height_layer.crs())
 
-            self.export_finished(z_scale, min_elev, max_elev, elev_range, self.grid_res)
+            self.export_finished(z_scale, min_elev, max_elev, elev_range, self.grid_resolution)
 
     def on_gdal_failed(self, error_msg):
         self.iface.messageBar().clearWidgets()
@@ -614,7 +612,7 @@ class Qalc:
         copystr = f"X=100.0,Y=100.0,Z={z_scale:.6f}"
         QMessageBox.information(
             self.iface.mainWindow(),
-            "Export Finished",
+            "Parameters",
             f"<b>Landscape XYZ Scaling:</b><br>"
             f"{copystr}<br>"
             f"<b>Texture Map Scaling:</b> {grid_res:.2f} m<br>"
