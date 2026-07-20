@@ -160,34 +160,41 @@ class OSMWorker(QRunnable):
 
         bbox = f"{self.south},{self.west},{self.north},{self.east}"
         over_ql = f"""
-        [out:xml][timeout:90];
+        [out:xml][timeout:120];
         (
             way["building"]({bbox});
             relation["building"]({bbox});
         );
-        out body;
         (._; >;);
-        out meta;
+        out body;
         """
-        url = "https://overpass-api.de/api/interpreter"
+
+        endpoints = [
+            "https://overpass-api.de/api/interpreter",
+            "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+            "https://overpass.private.coffee/api/interpreter"
+            ]
+
+        # url = "https://overpass-api.de/api/interpreter"
         output_file = os.path.join(self.output_directory, "aoi_data.osm")
-        try:
-            data = urllib.parse.urlencode({"data": over_ql}).encode("utf-8")
-            req = urllib.request.Request(
-                url, data=data, headers={"User-Agent": "QGIS-Qalc-Plugin/1.0"}
-            )
-            with urllib.request.urlopen(req) as response:
-                with open(output_file, "wb") as f:
-                    block_size = 1024 * 8
-                    while True:
-                        buffer = response.read(block_size)
-                        if not buffer:
-                            break
-                        f.write(buffer)
-                        self.signals.progress.emit(0)
-            self.signals.finished.emit(output_file)
-        except Exception as e:
-            self.signals.error.emit(f"overpass error: {str(e)}")
+        data = urllib.parse.urlencode({"data": over_ql}).encode("utf-8")
+        for url in endpoints:
+            try:
+                req = urllib.request.Request(
+                    url, data=data, headers={"User-Agent": "QGIS-Qalc-Plugin/1.0"}
+                )
+                with urllib.request.urlopen(req, timeout=130) as response:
+                    with open(output_file, "wb") as f:
+                        block_size = 1024 * 8
+                        while True:
+                            buffer = response.read(block_size)
+                            if not buffer:
+                                break
+                            f.write(buffer)
+                self.signals.finished.emit(output_file)
+                return
+            except Exception as e:
+                self.signals.error.emit(f"overpass api error: {str(e)}")
 # endregion
 ## end osm download ##
 
@@ -512,7 +519,7 @@ class Qalc:
             )
 
 
-            self.export_finished(z_scale, min_elev, max_elev, elev_range, self.grid_resolution)
+            # self.export_finished(z_scale, min_elev, max_elev, elev_range, self.grid_resolution)
 
     def on_gdal_failed(self, error_msg):
         self.iface.messageBar().clearWidgets()
@@ -600,7 +607,7 @@ class Qalc:
         def finished():
             img = render.renderedImage()
             img.save(image_location, "png")
-            # self.export_finished(z_scale, min_elev, max_elev, elev_range, grid_res)
+            self.export_finished(z_scale, min_elev, max_elev, elev_range, grid_res)
 
         render.finished.connect(finished)
         render.start()
@@ -614,7 +621,7 @@ class Qalc:
             self.iface.mainWindow(),
             "Parameters",
             f"<b>Landscape XYZ Scaling:</b><br>"
-            f"{copystr}<br>"
+            f"<code>{copystr}</code><br>"
             f"<b>Texture Map Scaling:</b> {grid_res:.2f} m<br>"
             f"<br><br>"
             f"<b>Min Elevation:</b> {min_elev:.2f} m<br>"
