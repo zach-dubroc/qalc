@@ -25,8 +25,7 @@ license=GNU GPL v2
 hasProcessingProvider=no
 # Uncomment the following line and add your changelog:
 changelog=0.2 - 
- - option for multiple albedo exports
- - export for roads/buildings 
+ - export osm buildings 
  - sequence issue fixed
 
 # Tags are comma separated with spaces allowed

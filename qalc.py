@@ -166,7 +166,7 @@ class OSMWorker(QRunnable):
             relation["building"]({bbox});
         );
         (._; >;);
-        out body;
+        out body qt;
         """
 
         endpoints = [
@@ -619,12 +619,12 @@ class Qalc:
         copystr = f"X=100.0,Y=100.0,Z={z_scale:.6f}"
         QMessageBox.information(
             self.iface.mainWindow(),
-            "Parameters",
+            "3D Scaling Parameters",
             f"<b>Landscape XYZ Scaling:</b><br>"
             f"<code>{copystr}</code><br>"
-            f"<b>Texture Map Scaling:</b> {grid_res:.2f} m<br>"
-            f"<br><br>"
-            f"<b>Min Elevation:</b> {min_elev:.2f} m<br>"
-            f"<b>Max Elevation:</b> {max_elev:.2f} m<br>"
-            f"<b>Range:</b> {elev_range:.2f} m<br>",
+            f"<b>Map Scaling:</b> <br> <code/>{grid_res:.2f}m </code><br>"
+            f"<br><b>Elevation values<b/><br>"
+            f"<b>Lowest:</b>  <code>{min_elev:.2f}m</code> <br>"
+            f"<b>Highest:</b> <code>{max_elev:.2f}m</code> <br>"
+            f"<b>Range:</b>   <code>{elev_range:.2f}m</code> <br>",
         )

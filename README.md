@@ -1,9 +1,9 @@
 **Qalq**
-QGIS plugin - automation tool for building 3D environments from GIS data
+QGIS plugin - automation tool for building 3D environments procedurally with GIS data
 
 ---
 
-author: shark_blood_studio
+author: shark_blood systems
 
 ---
 
@@ -24,5 +24,5 @@ examples in /screenshots
 AI Disclosure
 
 Generative AI was used in collaborative debugging and documentation research for this project. Any suggestions or ideas about code implementation from generative AI tools were reviewed, tested, modified, and validated thoroughly before use.
-This projects code, structural decisions, design decisions, and overall implementations remain solely my responsibility as the project author.
--ZD
+This projects code, structural/design decisions, and overall implementations remain solely my responsibility as the project author.
+-Zach Dubroc
