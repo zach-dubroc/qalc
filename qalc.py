@@ -178,8 +178,8 @@ class OSMWorker(QRunnable):
         # url = "https://overpass-api.de/api/interpreter"
         output_file = os.path.join(self.output_directory, "aoi_data.osm")
         data = urllib.parse.urlencode({"data": over_ql}).encode("utf-8")
-        for url in endpoints:
-            try:
+        try:
+            for url in endpoints:
                 req = urllib.request.Request(
                     url, data=data, headers={"User-Agent": "QGIS-Qalc-Plugin/1.0"}
                 )
@@ -193,8 +193,8 @@ class OSMWorker(QRunnable):
                             f.write(buffer)
                 self.signals.finished.emit(output_file)
                 return
-            except Exception as e:
-                self.signals.error.emit(f"overpass api error: {str(e)}")
+        except Exception as e:
+            self.signals.error.emit(f"overpass api error: {str(e)}")
 # endregion
 ## end osm download ##
 
