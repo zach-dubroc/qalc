@@ -194,7 +194,7 @@ class OSMWorker(QRunnable):
                 self.signals.finished.emit(output_file)
                 return
         except Exception as e:
-            self.signals.error.emit(f"overpass api error: {str(e)}")
+            self.signals.error.emit(f" {str(e)}")
 # endregion
 ## end osm download ##
 
@@ -619,7 +619,7 @@ class Qalc:
         copystr = f"X=100.0,Y=100.0,Z={z_scale:.6f}"
         QMessageBox.information(
             self.iface.mainWindow(),
-            "3D Scaling Parameters",
+            "Parameters",
             f"<b>Landscape XYZ Scaling:</b><br>"
             f"<code>{copystr}</code><br>"
             f"<b>Map Scaling:</b> <br> <code/>{grid_res:.2f}m </code><br>"
