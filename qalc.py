@@ -24,8 +24,7 @@
 
 import os
 import json
-import urllib.request
-import urllib.parse
+import requests
 
 from qgis.PyQt.QtCore import (
     QLocale,
@@ -133,8 +132,6 @@ class ExtentSet(QgsMapToolEmitPoint):
 ##end selection tool##
 
 ##osm download##
-
-
 # region
 class QalcSignals(QObject):
 
@@ -166,7 +163,7 @@ class OSMWorker(QRunnable):
             relation["building"]({bbox});
         );
         (._; >;);
-        out body qt;
+        out body;
         """
 
         endpoints = [
@@ -174,27 +171,30 @@ class OSMWorker(QRunnable):
             "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
             "https://overpass.private.coffee/api/interpreter"
             ]
-
-        # url = "https://overpass-api.de/api/interpreter"
         output_file = os.path.join(self.output_directory, "aoi_data.osm")
-        data = urllib.parse.urlencode({"data": over_ql}).encode("utf-8")
-        try:
-            for url in endpoints:
-                req = urllib.request.Request(
-                    url, data=data, headers={"User-Agent": "QGIS-Qalc-Plugin/1.0"}
+        headers={"User-Agent": "QGIS-Qalc-Plugin/1.0"}
+        last_error = None
+        for url in endpoints:
+            try:
+                response = requests.post(
+                    url,
+                    data={"data": over_ql},
+                    headers=headers,
+                    timeout=130,
+                    stream=True
                 )
-                with urllib.request.urlopen(req, timeout=130) as response:
-                    with open(output_file, "wb") as f:
-                        block_size = 1024 * 8
-                        while True:
-                            buffer = response.read(block_size)
-                            if not buffer:
-                                break
-                            f.write(buffer)
+                response.raise_for_status()
+                with open(output_file, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+
                 self.signals.finished.emit(output_file)
                 return
-        except Exception as e:
-            self.signals.error.emit(f" {str(e)}")
+            except Exception as e:
+                last_error = e
+                continue
+        self.signals.error.emit(f"{str(last_error)}")
 # endregion
 ## end osm download ##
 
@@ -260,9 +260,7 @@ class GDALWorker(QRunnable):
             self.signals.gdal_finished.emit(cropped_path, min_elev, max_elev, elev_range)
 
         except Exception as e:
-            QMessageBox.critical(
-                self.iface.mainWindow(), "dang", f"height export failed: {str(e)}"
-            )
+            self.signals.error.emit(str(e))
 
 
 class Qalc:
@@ -301,6 +299,7 @@ class Qalc:
         # Check if plugin was started the first time in current QGIS session
         # Must be set in initGui() to survive plugin reloads
         self.first_start = None
+        self.render = None
 
     def tr(self, message):
         """Get the translation for a string using Qt translation API.
@@ -598,19 +597,19 @@ class Qalc:
         settings.setExtent(aoi_extent)
         settings.setOutputDpi(dpi)
         settings.setDestinationCrs(self.height_layer.crs())
-        render = QgsMapRendererParallelJob(settings)
+        self.render = QgsMapRendererParallelJob(settings)
 
         # if not hasattr(self, 'active_renders'):
         #     self.active_renders = []
         # self.active_renders.append(render)
 
         def finished():
-            img = render.renderedImage()
+            img = self.render.renderedImage()
             img.save(image_location, "png")
             self.export_finished(z_scale, min_elev, max_elev, elev_range, grid_res)
 
-        render.finished.connect(finished)
-        render.start()
+        self.render.finished.connect(finished)
+        self.render.start()
 
     def export_finished(self, z_scale, min_elev, max_elev, elev_range, grid_res):
         # x-y-z scaling on import
@@ -623,7 +622,7 @@ class Qalc:
             f"<b>Landscape XYZ Scaling:</b><br>"
             f"<code>{copystr}</code><br>"
             f"<b>Map Scaling:</b> <br> <code/>{grid_res:.2f}m </code><br>"
-            f"<br><b>Elevation values<b/><br>"
+            f"<br><b>Elevation values</b><br>"
             f"<b>Lowest:</b>  <code>{min_elev:.2f}m</code> <br>"
             f"<b>Highest:</b> <code>{max_elev:.2f}m</code> <br>"
             f"<b>Range:</b>   <code>{elev_range:.2f}m</code> <br>",
